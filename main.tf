@@ -2,6 +2,7 @@ provider "aws" {
   region     = var.aws_region
   access_key = var.aws_access_key
   secret_key = var.aws_secret_key
+}
 
 
 #my vpc
@@ -41,14 +42,14 @@ provider "kubernetes" {
 #my eks 
 
 module "my-eks" {
-  source          = "terraform-aws-modules/eks/aws"
-  cluster_name    = "my-cluster"
-  cluster_version = "1.17"
-  subnets                         = module.my_vpc.private_subnets 
+  source                          = "terraform-aws-modules/eks/aws"
+  cluster_name                    = "my-cluster"
+  cluster_version                 = "1.17"
+  subnets                         = module.my_vpc.private_subnets
   vpc_id                          = module.my_vpc.vpc_id
   cluster_endpoint_private_access = true
   cluster_endpoint_public_access  = true
-  
+
 
   node_groups = {
 
@@ -77,7 +78,7 @@ resource "aws_security_group_rule" "eks_ingress_localhost" {
   # Allow inbound traffic from your localhost external IP to the EKS. 
   #Replace A.B.C.D/32 with your real IP. Use service like "icanhazip.com"
 
-  cidr_blocks       = ["A.B.C.D/32"]  
+  cidr_blocks       = ["A.B.C.D/32"]
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
@@ -169,7 +170,7 @@ module "asg" {
   create_lc                 = false
   use_lc                    = true
   launch_configuration      = aws_launch_configuration.asg_lconf.name
-  vpc_zone_identifier       = module.my_vpc.public_subnets 
+  vpc_zone_identifier       = module.my_vpc.public_subnets
   health_check_type         = "EC2"
   min_size                  = 1
   max_size                  = 1
