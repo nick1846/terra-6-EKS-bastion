@@ -2,27 +2,9 @@ provider "aws" {
   region     = var.aws_region
   access_key = var.aws_access_key
   secret_key = var.aws_secret_key
-}
-
-resource "aws_key_pair" "ec2-user-public" {
-  key_name   = var.my_key_name
-  public_key = var.my_publickey
-}
 
 
-data "aws_eks_cluster" "cluster" {
-  name = module.my-eks.cluster_id
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.my-eks.cluster_id
-}
-
-provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-}
+#my vpc
 
 module "my_vpc" {
   source               = "terraform-aws-modules/vpc/aws"
@@ -40,33 +22,23 @@ module "my_vpc" {
 
 }
 
+####################################
 
-resource "aws_security_group_rule" "eks_ingress_localhost" {
-  type        = "ingress"
-  description = "Allow traffic from localhost"
-
-  # Allow inbound traffic from your localhost external IP to the EKS. 
-  #Replace A.B.C.D/32 with your real IP. Use service like "icanhazip.com"
-
-  cidr_blocks       = ["A.B.C.D/32"]  
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  security_group_id = module.my-eks.cluster_security_group_id
+data "aws_eks_cluster" "cluster" {
+  name = module.my-eks.cluster_id
 }
 
-resource "aws_security_group_rule" "eks_ingress_bastion" {
-  type        = "ingress"
-  description = "Allow traffic from bastion host"
-
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = module.my-eks.cluster_security_group_id
-  source_security_group_id = aws_security_group.sg_bastion.id
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.my-eks.cluster_id
 }
 
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
 
+#my eks 
 
 module "my-eks" {
   source          = "terraform-aws-modules/eks/aws"
@@ -92,6 +64,35 @@ module "my-eks" {
       }
     }
   }
+}
+
+####################################
+
+#my security groups
+
+resource "aws_security_group_rule" "eks_ingress_localhost" {
+  type        = "ingress"
+  description = "Allow traffic from localhost"
+
+  # Allow inbound traffic from your localhost external IP to the EKS. 
+  #Replace A.B.C.D/32 with your real IP. Use service like "icanhazip.com"
+
+  cidr_blocks       = ["A.B.C.D/32"]  
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = module.my-eks.cluster_security_group_id
+}
+
+resource "aws_security_group_rule" "eks_ingress_bastion" {
+  type        = "ingress"
+  description = "Allow traffic from bastion host"
+
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = module.my-eks.cluster_security_group_id
+  source_security_group_id = aws_security_group.sg_bastion.id
 }
 
 resource "aws_security_group" "sg_bastion" {
@@ -126,6 +127,15 @@ resource "aws_security_group_rule" "ss_bastion_ingres_eks" {
   source_security_group_id = module.my-eks.cluster_security_group_id
 }
 
+
+############################################
+
+#my key pair for bastion host
+
+resource "aws_key_pair" "ec2-user-public" {
+  key_name   = var.my_key_name
+  public_key = var.my_publickey
+}
 
 #AMI data source for bastion host
 
