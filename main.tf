@@ -158,6 +158,7 @@ resource "aws_launch_configuration" "asg_lconf" {
   instance_type   = "t2.micro"
   security_groups = [aws_security_group.sg_bastion.id]
   key_name        = var.my_key_name
+  user_data       = file("userdata.sh")
   lifecycle {
     create_before_destroy = true
   }
@@ -177,11 +178,4 @@ module "asg" {
   desired_capacity          = 1
   wait_for_capacity_timeout = 0
 
-  tags = [
-    {
-      key                 = "Enviroment"
-      value               = "BostionHost"
-      propagate_at_launch = true
-    }
-  ]
 }
