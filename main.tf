@@ -76,7 +76,7 @@ resource "aws_security_group_rule" "eks_ingress_localhost" {
   description = "Allow traffic from localhost"
 
   # Allow inbound traffic from your localhost external IP to the EKS. 
-  #Replace A.B.C.D/32 with your real IP. Use service like "icanhazip.com"
+  #Replace A.B.C.D/32 with your real IP. Use service like "ipv4.icanhazip.com"
 
   cidr_blocks       = ["A.B.C.D/32"]
   from_port         = 443
@@ -138,7 +138,7 @@ resource "aws_key_pair" "ec2-user-public" {
   public_key = var.my_publickey
 }
 
-#AMI data source for bastion host
+#AMI and userdata data source for bastion host
 
 data "aws_ami" "my_ami" {
   most_recent = var.most_recent_bool
@@ -150,27 +150,31 @@ data "aws_ami" "my_ami" {
 }
 
 
-#launch configuration and autoscaling group for bastion host in public subnet
+/* data "template_file" "script" {
+  template = file("userdata.sh")
+} */
 
-resource "aws_launch_configuration" "asg_lconf" {
-  name            = "my_launch_conf"
-  image_id        = data.aws_ami.my_ami.id
-  instance_type   = "t2.micro"
-  security_groups = [aws_security_group.sg_bastion.id]
-  key_name        = var.my_key_name
-  user_data       = file("userdata.sh")
-  lifecycle {
-    create_before_destroy = true
-  }
+
+#launch template and autoscaling group for bastion host in public subnet
+
+resource "aws_launch_template" "asg_lt" {
+  name                   = "bastion_launch_template"
+  image_id               = data.aws_ami.my_ami.id
+  instance_type          = "t2.micro"
+  key_name               = var.my_key_name
+  vpc_security_group_ids = [aws_security_group.sg_bastion.id]
+  user_data              = filebase64("userdata.sh")
 }
+
 
 
 module "asg" {
   source                    = "terraform-aws-modules/autoscaling/aws"
-  name                      = "bastion_host"
-  create_lc                 = false
-  use_lc                    = true
-  launch_configuration      = aws_launch_configuration.asg_lconf.name
+  name                      = "bastion_asg"
+  create_lt                 = false
+  use_lt                    = true
+  launch_template           = aws_launch_template.asg_lt.name
+  lt_version                = "$Latest"
   vpc_zone_identifier       = module.my_vpc.public_subnets
   health_check_type         = "EC2"
   min_size                  = 1
