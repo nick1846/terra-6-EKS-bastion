@@ -53,23 +53,19 @@ module "my-eks" {
 
   node_groups = {
 
-    private = {
-
-      subnets          = module.my_vpc.private_subnets
+    private = {      
       desired_capacity = 2
       max_capacity     = 5
       min_capacity     = 1
-      instance_types   = ["t2.micro"]
-      k8_labels = {
-        Environment = "private"
-      }
+      instance_types   = ["t2.micro"]       
     }
   }
+  
 }
 
 ####################################
 
-#my security groups
+#my security groups 
 
 resource "aws_security_group_rule" "eks_ingress_localhost" {
   type        = "ingress"
@@ -85,7 +81,7 @@ resource "aws_security_group_rule" "eks_ingress_localhost" {
   security_group_id = module.my-eks.cluster_security_group_id
 }
 
-resource "aws_security_group_rule" "eks_ingress_bastion" {
+resource "aws_security_group_rule" "rule_eks_ingress_bastion" {
   type        = "ingress"
   description = "Allow traffic from bastion host"
 
@@ -93,11 +89,11 @@ resource "aws_security_group_rule" "eks_ingress_bastion" {
   to_port                  = 443
   protocol                 = "tcp"
   security_group_id        = module.my-eks.cluster_security_group_id
-  source_security_group_id = aws_security_group.sg_bastion.id
+  source_security_group_id = aws_security_group.sg_bastion_eks.id
 }
 
-resource "aws_security_group" "sg_bastion" {
-  name        = "sg_bastion"
+resource "aws_security_group" "sg_bastion_ssh" {
+  name        = "sg_bastion_ssh"
   description = "Security group for bastion host"
   vpc_id      = module.my_vpc.vpc_id
 
@@ -114,19 +110,41 @@ resource "aws_security_group" "sg_bastion" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "sg_bastion_ssh"
+  }
+}
+
+resource "aws_security_group" "sg_bastion_eks" {
+  name        = "sg_bastion_eks"
+  description = "Security group for bastion host to communicate with eks"
+  vpc_id      = module.my_vpc.vpc_id  
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "sg_bastion_eks"
+  }
 }
 
 
-resource "aws_security_group_rule" "ss_bastion_ingres_eks" {
+resource "aws_security_group_rule" "rule_bastion_ingress_eks" {
   type        = "ingress"
   description = "Allow traffic from eks"
 
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  security_group_id        = aws_security_group.sg_bastion.id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.sg_bastion_eks.id
   source_security_group_id = module.my-eks.cluster_security_group_id
 }
+
 
 
 ############################################
@@ -138,7 +156,7 @@ resource "aws_key_pair" "ec2-user-public" {
   public_key = var.my_publickey
 }
 
-#AMI and userdata data source for bastion host
+#AMI data source for bastion host
 
 data "aws_ami" "my_ami" {
   most_recent = var.most_recent_bool
@@ -149,20 +167,14 @@ data "aws_ami" "my_ami" {
   owners = var.ami_owner
 }
 
-
-/* data "template_file" "script" {
-  template = file("userdata.sh")
-} */
-
-
-#launch template and autoscaling group for bastion host in public subnet
+#launch template and autoscaling group for bastion host in public subnets
 
 resource "aws_launch_template" "asg_lt" {
   name                   = "bastion_launch_template"
   image_id               = data.aws_ami.my_ami.id
   instance_type          = "t2.micro"
   key_name               = var.my_key_name
-  vpc_security_group_ids = [aws_security_group.sg_bastion.id]
+  vpc_security_group_ids = [aws_security_group.sg_bastion_ssh.id, aws_security_group.sg_bastion_eks.id]
   user_data              = filebase64("userdata.sh")
 }
 
@@ -170,7 +182,7 @@ resource "aws_launch_template" "asg_lt" {
 
 module "asg" {
   source                    = "terraform-aws-modules/autoscaling/aws"
-  name                      = "bastion_asg"
+  name                      = "bastion_host"
   create_lt                 = false
   use_lt                    = true
   launch_template           = aws_launch_template.asg_lt.name
