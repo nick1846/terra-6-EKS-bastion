@@ -6,6 +6,7 @@ my_publickey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMVFg4T9xpmygL6+2bHKqNzhhw
 
 #my-vpc-values
 
+my_vpc_name             = "eks_vpc"
 my_vpc_cidr             = "10.0.0.0/16"
 my_vpc_azs              = ["us-east-2a", "us-east-2b", "us-east-2c"]
 my_vpc_private_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
@@ -13,14 +14,16 @@ my_vpc_public_subnets   = ["10.0.100.0/24", "10.0.101.0/24"]
 my_dns_hostnames_bool   = "true"
 my_vpc_nat_gateway_bool = "true"
 my_tags = {
-  "kubernetes.io/cluster/my_cluster" = "shared"
+  "Environment" = "test"
 }
 my_public_subnets_tags = {
+  "Environment" = "test"
   "kubernetes.io/cluster/my_cluster" = "shared"
   "kubernetes.io/role/elb"           = "1"
 }
 my_private_subnets_tags = {
-  "kubernetes.io/cluster/my_cluster" = "shared"
+  "Environment" = "test"
+  #"kubernetes.io/cluster/my_cluster" = "shared"
   "kubernetes.io/role/internal-elb"  = "1"
 }
 

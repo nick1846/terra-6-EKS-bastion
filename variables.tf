@@ -19,6 +19,8 @@ variable "my_publickey" {
 
 #my-vpc-variables
 
+variable "my_vpc_name" {
+}
 
 variable "my_vpc_cidr" {
 }
